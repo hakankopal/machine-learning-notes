@@ -3,7 +3,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import validation_curve
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, roc_auc_score, accuracy_score, precision_score, recall_score, f1_score
 import graphviz
 import pydotplus
 from prettytable import PrettyTable
@@ -49,37 +49,75 @@ def tree_graph(model, col_names, file_name):
 
 def model_perfomance_plot(y_train, y_pred_train, y_prob_train, y_test,  y_pred_test, y_prob_test):
     # y_train and y_test are the true target values and y_pred_train and y_pred_test are the predicted target values
-    report_train = classification_report(y_train, y_pred_train, output_dict=True)
-    report_test = classification_report(y_test, y_pred_test, output_dict=True)
+    confusion_train = confusion_matrix(y_train, y_pred_train)
+    confusion_test = confusion_matrix(y_test, y_pred_test)
 
-    # get accuracy and ROC AUC score
+    # get accuracy, ROC AUC score, precision, recall, and F1 score
     acc_train = accuracy_score(y_train, y_pred_train)
     roc_auc_train = roc_auc_score(y_train, y_prob_train)
+    prec_train = precision_score(y_train, y_pred_train)
+    recall_train = recall_score(y_train, y_pred_train)
+    f1_train = f1_score(y_train, y_pred_train)
     acc_test = accuracy_score(y_test, y_pred_test)
     roc_auc_test = roc_auc_score(y_test, y_prob_test)
+    prec_test = precision_score(y_test, y_pred_test)
+    recall_test = recall_score(y_test, y_pred_test)
+    f1_test = f1_score(y_test, y_pred_test)
 
     # plot the classification report as a heatmap
-    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12, 4))
-    sns.heatmap(pd.DataFrame(report_train).iloc[:-1, :].T, annot=True, cmap='Blues', ax=axs[0])
-    sns.heatmap(pd.DataFrame(report_test).iloc[:-1, :].T, annot=True, cmap='Blues', ax=axs[1])
-    axs[0].set_title('Training Set Classification Report')
+    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(5, 3))
+    sns.heatmap(confusion_train, annot=True,  fmt=',.0f', cmap='Blues', ax=axs[0], cbar=False)
+    sns.heatmap(confusion_test, annot=True,  fmt=',.0f', cmap='Blues', ax=axs[1], cbar=False)
+    
+    fig.suptitle('Confusion Matrix', fontsize=12)
+
+    axs[0].set_title('Training')
     axs[0].set_xlabel('Metrics')
     axs[0].set_ylabel('Classes')
-    axs[0].set_yticks(rotation=0)
-    axs[1].set_title('Test Set Classification Report')
+    axs[0].set_xticklabels(axs[0].get_xticklabels(), ha='right')
+    axs[0].set_yticklabels(axs[0].get_yticklabels(), va='center')
+    axs[1].set_title('Test')
     axs[1].set_xlabel('Metrics')
     axs[1].set_ylabel('Classes')
-    axs[1].set_yticks(rotation=0)
+    axs[1].set_xticklabels(axs[1].get_xticklabels(), ha='right')
+    axs[1].set_yticklabels(axs[1].get_yticklabels(), va='center')
+    plt.tight_layout()
     plt.show()
-
-    # print accuracy and ROC AUC score
 
     # create table
     table = PrettyTable()
-    table.field_names = ["Dataset", "Accuracy", "ROC AUC Score"]
-    table.add_row(["Training", f"{acc_train:.2f}", f"{roc_auc_train:.2f}"])
-    table.add_row(["Test", f"{acc_test:.2f}", f"{roc_auc_test:.2f}"])
+    table.field_names = ["Dataset", "Accuracy", "ROC AUC Score", "Precision", "Recall", "F1 Score"]
+    table.add_row(["Training", f"{acc_train:.2f}", f"{roc_auc_train:.2f}", f"{prec_train:.2f}", f"{recall_train:.2f}", f"{f1_train:.2f}"])
+    table.add_row(["Test", f"{acc_test:.2f}", f"{roc_auc_test:.2f}", f"{prec_test:.2f}", f"{recall_test:.2f}", f"{f1_test:.2f}"])
 
     # print table
-    print(10*'-', 'Accuracy & Roc AUC Score Evaluation', 10*'-')
+    print('                       -', 'Performance Summary', '-')
     print(table)
+
+
+
+def roc_auc_curve_plot(y_test, y_pred_proba):
+    # Assuming y_test and y_pred_proba are your ground truth and predicted probabilities, respectively
+    fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+    auc_score = roc_auc_score(y_test, y_pred_proba)
+
+    # Create a figure and axes
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    # Customize the plot
+    ax.plot(fpr, tpr, linewidth=3, color='purple')
+    ax.plot([0, 1], [0, 1], 'k--', linewidth=2)
+    ax.set_xlim([-0.05, 1.05])
+    ax.set_ylim([-0.05, 1.05])
+    ax.set_xlabel('False Positive Rate', fontsize=12)
+    ax.set_ylabel('True Positive Rate', fontsize=12)
+    ax.set_title('ROC Curve (AUC={:.2f})'.format(auc_score), fontsize=14)
+    ax.tick_params(axis='both', labelsize=10)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Create a shaded area under the curve
+    ax.fill_between(fpr, tpr, alpha=0.2, color='purple')
+
+    # Display the plot
+    plt.show()
